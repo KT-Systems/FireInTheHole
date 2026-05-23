@@ -952,6 +952,8 @@ uint32_t ms;
 void SDCardCommTask(void const * argument)
 {
 	/* USER CODE BEGIN SDCardCommTask */
+
+
 	osDelay(1000);
 	//	if(f_mount(&FatFs, "", 1) != FR_OK){
 	//		Error_Handler();
@@ -961,6 +963,7 @@ void SDCardCommTask(void const * argument)
 	//	}
 	if(acu.usbConnected == false)
 	{
+
 		resMount = f_mount(&FatFs, (TCHAR const*)SDPath, 1);
 		for(int i=0;i<=10;i++)
 		{
@@ -977,32 +980,46 @@ void SDCardCommTask(void const * argument)
 
 		}
 
+
 		const uint8_t BASE_NAME_SIZE = sizeof(FILE_BASE_NAME) - 1;
 		char fileName[13] = FILE_BASE_NAME "000.CSV";
-		while(f_stat(fileName, &filinfo) != FR_NO_FILE){
-			if(fileName[BASE_NAME_SIZE + 2] != '9') {
-				fileName[BASE_NAME_SIZE + 2]++;
-			}
-			else if(fileName[BASE_NAME_SIZE + 1] != '9') {
-				fileName[BASE_NAME_SIZE + 2] = '0';
-				fileName[BASE_NAME_SIZE + 1]++;
-			}
-			else if(fileName[BASE_NAME_SIZE] != '9'){
-				fileName[BASE_NAME_SIZE + 2] = '0';
-				fileName[BASE_NAME_SIZE + 1] = '0';
-				fileName[BASE_NAME_SIZE]++;
-			}
-			else{
-				osThreadTerminate(SDCardCommHandle);
-				Error_Handler();
-				break;
-			}
-		}
+	    statRes = f_stat(fileName, &filinfo);
+	    if (statRes == FR_OK)
+	    {
+	        if(fileName[BASE_NAME_SIZE + 2] != '9') {
+	            fileName[BASE_NAME_SIZE + 2]++;
+	        }
+	        else if(fileName[BASE_NAME_SIZE + 1] != '9') {
+	            fileName[BASE_NAME_SIZE + 2] = '0';
+	            fileName[BASE_NAME_SIZE + 1]++;
+	        }
+	        else if(fileName[BASE_NAME_SIZE] != '9'){
+	            fileName[BASE_NAME_SIZE + 2] = '0';
+	            fileName[BASE_NAME_SIZE + 1] = '0';
+	            fileName[BASE_NAME_SIZE]++;
+	        }
+	        else{
+	            Error_Handler();
+	        }
+	    }
+	    else
+	    {
+	        res = statRes;
+	        acu.sdEnabled = 0;
+	        acu.sdDisabled = 1;
+	        Error_Handler();
+	    }
 
 		FR_Status = f_open(&fil, fileName, FA_WRITE | FA_READ | FA_CREATE_ALWAYS);
 		if( FR_Status != FR_OK) Error_Handler();
-		//		res = f_puts(tmp, &fil);
+		res = f_puts(tmp, &fil);
+
+		AA = f_sync(&fil);
+		if (AA != FR_OK) {
+			Error_Handler();
+		}
 		SDCardInit(&fil);
+
 		char bufAh[32];
 #if FULLY_CHARGED
 		remainingAh = MAX_Ah;
@@ -1107,9 +1124,10 @@ void SDCardCommTask(void const * argument)
 				changeLine(&fil);
 
 				f_lseek(&filSoC, 0);
-				writeFloatField(&filSoC, (float)remainingAh);
+				writeFloatField(&filSoC, (float)acu.soc);
 				changeLine(&filSoC);
 				HAL_GPIO_WritePin(LED_SD_H7_GPIO_Port, LED_SD_H7_Pin, GPIO_PIN_SET);
+				acu.sdEnabled = 1;
 				acu.sdSyncTime = xTaskGetTickCount();
 			}
 
@@ -1119,10 +1137,8 @@ void SDCardCommTask(void const * argument)
 					AA = f_sync(&fil);
 					f_close(&fil);
 					f_mount(NULL, "", 0);
-					f_mount(&FatFs, "", 1);
+					f_mount(&FatFs,  (TCHAR const*)SDPath , 1);
 					res = f_open(&fil, fileName, FA_WRITE | FA_READ | FA_CREATE_ALWAYS);
-					osThreadTerminate(SDCardCommHandle);
-
 					HAL_GPIO_TogglePin(LED_SD_H7_GPIO_Port, LED_SD_H7_Pin);
 					osDelay(500);
 				}
@@ -1130,32 +1146,37 @@ void SDCardCommTask(void const * argument)
 					AA = f_sync(&filSoC);
 					f_close(&filSoC);
 					f_mount(NULL, "", 0);
-					f_mount(&FatFs, "", 1);
-					resSoC = f_open(&filSoC, "SoC.txt", FA_WRITE | FA_READ | FA_CREATE_ALWAYS);
-					osThreadTerminate(SDCardCommHandle);
+					f_mount(&FatFs,  (TCHAR const*)SDPath , 1);
+					resSoC = f_open(&filSoC,  "SoC.txt", FA_WRITE | FA_READ | FA_CREATE_ALWAYS);
 					HAL_GPIO_TogglePin(LED_SD_H7_GPIO_Port, LED_SD_H7_Pin);
 					osDelay(500);
 				}
 			}
 		}
 	}
-	else if(acu.usbConnected == true){
-		for(;;)
-		{
-			f_sync(&fil);
-			f_sync(&filSoC);
-			f_close(&fil);
-			f_close(&filSoC);
-			f_mount(NULL, "", 0);
-			HAL_GPIO_WritePin(Media_Select_GPIO_Port, Media_Select_Pin, GPIO_PIN_SET);
-			HAL_GPIO_WritePin(MEDIA_NRST_GPIO_Port, MEDIA_NRST_Pin, GPIO_PIN_SET);
-			HAL_GPIO_WritePin(LED_SD_H7_GPIO_Port, LED_SD_H7_Pin, GPIO_PIN_RESET);
-			acu.sdDisabled = 1;
-			acu.sdEnabled = 0;
-			HAL_IWDG_Refresh(&hiwdg1);
-			osDelay(100);
-		}
-	}
+	else if(acu.usbConnected)
+    {
+		for(;;){
+        if(acu.sdEnabled)
+        {
+            f_sync(&fil);
+            f_sync(&filSoC);
+            f_close(&fil);
+            f_close(&filSoC);
+            f_mount(NULL, "", 0);
+
+            acu.sdEnabled = 0;
+            acu.sdDisabled = 1;
+        }
+
+        HAL_GPIO_WritePin(Media_Select_GPIO_Port, Media_Select_Pin, GPIO_PIN_SET);
+        HAL_GPIO_WritePin(MEDIA_NRST_GPIO_Port, MEDIA_NRST_Pin, GPIO_PIN_SET);
+        HAL_GPIO_WritePin(LED_SD_H7_GPIO_Port, LED_SD_H7_Pin, GPIO_PIN_RESET);
+
+        osDelay(100);
+        continue;
+    }
+    }
 	/* USER CODE END SDCardCommTask */
 }
 
