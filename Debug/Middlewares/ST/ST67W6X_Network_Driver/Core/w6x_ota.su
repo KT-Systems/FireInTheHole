@@ -1,0 +1,3 @@
+../Middlewares/ST/ST67W6X_Network_Driver/Core/w6x_ota.c:51:14:W6X_OTA_Starts	16	static
+../Middlewares/ST/ST67W6X_Network_Driver/Core/w6x_ota.c:65:14:W6X_OTA_Finish	16	static
+../Middlewares/ST/ST67W6X_Network_Driver/Core/w6x_ota.c:76:14:W6X_OTA_Send	16	static

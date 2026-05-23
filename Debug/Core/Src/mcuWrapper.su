@@ -1,0 +1,11 @@
+../Core/Src/mcuWrapper.c:242:6:Delay_ms	16	static
+../Core/Src/mcuWrapper.c:259:6:adBmsCsLow	8	static
+../Core/Src/mcuWrapper.c:275:6:adBmsCsHigh	8	static
+../Core/Src/mcuWrapper.c:295:6:spiWriteBytes	16	static
+../Core/Src/mcuWrapper.c:321:6:spiWriteReadBytes	96	dynamic
+../Core/Src/mcuWrapper.c:368:6:spiReadBytes	64	dynamic
+../Core/Src/mcuWrapper.c:391:6:startTimer	8	static
+../Core/Src/mcuWrapper.c:407:6:stopTimer	8	static
+../Core/Src/mcuWrapper.c:423:10:getTimCount	16	static
+../Core/Src/mcuWrapper.c:446:6:adBmsWakeupIcIdle	32	static
+../Core/Src/mcuWrapper.c:471:6:adBmsWakeupIc	24	static

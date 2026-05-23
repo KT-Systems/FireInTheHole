@@ -1,0 +1,1180 @@
+/* USER CODE BEGIN Header */
+/**
+ ******************************************************************************
+ * File Name          : freertos.c
+ * Description        : Code for freertos applications
+ ******************************************************************************
+ * @attention
+ *
+ * Copyright (c) 2025 STMicroelectronics.
+ * All rights reserved.
+ *
+ * This software is licensed under terms that can be found in the LICENSE file
+ * in the root directory of this software component.
+ * If no LICENSE file comes with this software, it is provided AS-IS.
+ *
+ ******************************************************************************
+ */
+/* USER CODE END Header */
+
+/* Includes ------------------------------------------------------------------*/
+#include "FreeRTOS.h"
+#include "task.h"
+#include "main.h"
+#include "cmsis_os.h"
+
+/* Private includes ----------------------------------------------------------*/
+/* USER CODE BEGIN Includes */
+#include "fatfs.h"
+/* USER CODE END Includes */
+
+/* Private typedef -----------------------------------------------------------*/
+/* USER CODE BEGIN PTD */
+extern FIL fil;
+extern FIL filSoC;
+extern void main_app();
+/* USER CODE END PTD */
+
+/* Private define ------------------------------------------------------------*/
+/* USER CODE BEGIN PD */
+//extern float genericUnderVoltageThreshold;
+//extern float genericOverVoltageThreshold;
+/* USER CODE END PD */
+
+/* Private macro -------------------------------------------------------------*/
+/* USER CODE BEGIN PM */
+
+/* USER CODE END PM */
+
+/* Private variables ---------------------------------------------------------*/
+/* USER CODE BEGIN Variables */
+//////////////////////////////////General Variables//////////////////////////////////
+uint8_t flag = 0;//Control Variable
+HAL_StatusTypeDef hal_ret;
+uint16_t temp_dcc;
+//////////////////////////////////General Variables//////////////////////////////////
+
+/* USER CODE END Variables */
+osThreadId ChipCommHandle;
+osThreadId CellBalancingHandle;
+osThreadId UserInterfaceHandle;
+osThreadId ChargingHandle;
+osThreadId MiscelaneousHandle;
+osThreadId SDCardCommHandle;
+osThreadId WifiTaskHandle;
+osSemaphoreId chipSemaphoreHandle;
+
+/* Private function prototypes -----------------------------------------------*/
+/* USER CODE BEGIN FunctionPrototypes */
+
+/* USER CODE END FunctionPrototypes */
+
+void ChipCommTask(void const * argument);
+void CellBalancingTask(void const * argument);
+void UserInterfaceTask(void const * argument);
+void ChargingTask(void const * argument);
+void MiscelaneousTask(void const * argument);
+void SDCardCommTask(void const * argument);
+void wifiTaskFunction(void const * argument);
+
+void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
+
+/* GetIdleTaskMemory prototype (linked to static allocation support) */
+void vApplicationGetIdleTaskMemory( StaticTask_t **ppxIdleTaskTCBBuffer, StackType_t **ppxIdleTaskStackBuffer, uint32_t *pulIdleTaskStackSize );
+
+/* GetTimerTaskMemory prototype (linked to static allocation support) */
+void vApplicationGetTimerTaskMemory( StaticTask_t **ppxTimerTaskTCBBuffer, StackType_t **ppxTimerTaskStackBuffer, uint32_t *pulTimerTaskStackSize );
+
+/* Hook prototypes */
+void configureTimerForRunTimeStats(void);
+unsigned long getRunTimeCounterValue(void);
+void vApplicationIdleHook(void);
+void vApplicationStackOverflowHook(xTaskHandle xTask, signed char *pcTaskName);
+void vApplicationMallocFailedHook(void);
+
+/* USER CODE BEGIN 1 */
+/* Functions needed when configGENERATE_RUN_TIME_STATS is on */
+__weak void configureTimerForRunTimeStats(void)
+{
+
+}
+
+__weak unsigned long getRunTimeCounterValue(void)
+{
+return 0;
+}
+/* USER CODE END 1 */
+
+/* USER CODE BEGIN 2 */
+__weak void vApplicationIdleHook( void )
+{
+   /* vApplicationIdleHook() will only be called if configUSE_IDLE_HOOK is set
+   to 1 in FreeRTOSConfig.h. It will be called on each iteration of the idle
+   task. It is essential that code added to this hook function never attempts
+   to block in any way (for example, call xQueueReceive() with a block time
+   specified, or call vTaskDelay()). If the application makes use of the
+   vTaskDelete() API function (as this demo application does) then it is also
+   important that vApplicationIdleHook() is permitted to return to its calling
+   function, because it is the responsibility of the idle task to clean up
+   memory allocated by the kernel to any task that has since been deleted. */
+}
+/* USER CODE END 2 */
+
+/* USER CODE BEGIN 4 */
+__weak void vApplicationStackOverflowHook(xTaskHandle xTask, signed char *pcTaskName)
+{
+   /* Run time stack overflow checking is performed if
+   configCHECK_FOR_STACK_OVERFLOW is defined to 1 or 2. This hook function is
+   called if a stack overflow is detected. */
+}
+/* USER CODE END 4 */
+
+/* USER CODE BEGIN 5 */
+__weak void vApplicationMallocFailedHook(void)
+{
+   /* vApplicationMallocFailedHook() will only be called if
+   configUSE_MALLOC_FAILED_HOOK is set to 1 in FreeRTOSConfig.h. It is a hook
+   function that will get called if a call to pvPortMalloc() fails.
+   pvPortMalloc() is called internally by the kernel whenever a task, queue,
+   timer or semaphore is created. It is also called by various parts of the
+   demo application. If heap_1.c or heap_2.c are used, then the size of the
+   heap available to pvPortMalloc() is defined by configTOTAL_HEAP_SIZE in
+   FreeRTOSConfig.h, and the xPortGetFreeHeapSize() API function can be used
+   to query the size of free heap space that remains (although it does not
+   provide information on how the remaining heap might be fragmented). */
+}
+/* USER CODE END 5 */
+
+/* USER CODE BEGIN GET_IDLE_TASK_MEMORY */
+static StaticTask_t xIdleTaskTCBBuffer;
+static StackType_t xIdleStack[configMINIMAL_STACK_SIZE];
+
+void vApplicationGetIdleTaskMemory( StaticTask_t **ppxIdleTaskTCBBuffer, StackType_t **ppxIdleTaskStackBuffer, uint32_t *pulIdleTaskStackSize )
+{
+	*ppxIdleTaskTCBBuffer = &xIdleTaskTCBBuffer;
+	*ppxIdleTaskStackBuffer = &xIdleStack[0];
+	*pulIdleTaskStackSize = configMINIMAL_STACK_SIZE;
+	/* place for user code */
+}
+/* USER CODE END GET_IDLE_TASK_MEMORY */
+
+/* USER CODE BEGIN GET_TIMER_TASK_MEMORY */
+static StaticTask_t xTimerTaskTCBBuffer;
+static StackType_t xTimerStack[configTIMER_TASK_STACK_DEPTH];
+
+void vApplicationGetTimerTaskMemory( StaticTask_t **ppxTimerTaskTCBBuffer, StackType_t **ppxTimerTaskStackBuffer, uint32_t *pulTimerTaskStackSize )
+{
+  *ppxTimerTaskTCBBuffer = &xTimerTaskTCBBuffer;
+  *ppxTimerTaskStackBuffer = &xTimerStack[0];
+  *pulTimerTaskStackSize = configTIMER_TASK_STACK_DEPTH;
+  /* place for user code */
+}
+/* USER CODE END GET_TIMER_TASK_MEMORY */
+
+/**
+  * @brief  FreeRTOS initialization
+  * @param  None
+  * @retval None
+  */
+void MX_FREERTOS_Init(void) {
+  /* USER CODE BEGIN Init */
+
+  /* USER CODE END Init */
+
+  /* USER CODE BEGIN RTOS_MUTEX */
+	/* add mutexes, ... */
+  /* USER CODE END RTOS_MUTEX */
+
+  /* Create the semaphores(s) */
+  /* definition and creation of chipSemaphore */
+  osSemaphoreDef(chipSemaphore);
+  chipSemaphoreHandle = osSemaphoreCreate(osSemaphore(chipSemaphore), 1);
+
+  /* USER CODE BEGIN RTOS_SEMAPHORES */
+	/* add semaphores, ... */
+  /* USER CODE END RTOS_SEMAPHORES */
+
+  /* USER CODE BEGIN RTOS_TIMERS */
+	/* start timers, add new ones, ... */
+  /* USER CODE END RTOS_TIMERS */
+
+  /* USER CODE BEGIN RTOS_QUEUES */
+	/* add queues, ... */
+  /* USER CODE END RTOS_QUEUES */
+
+  /* Create the thread(s) */
+  /* definition and creation of ChipComm */
+  osThreadDef(ChipComm, ChipCommTask, osPriorityHigh, 0, 5000);
+  ChipCommHandle = osThreadCreate(osThread(ChipComm), NULL);
+
+  /* definition and creation of CellBalancing */
+  osThreadDef(CellBalancing, CellBalancingTask, osPriorityRealtime, 0, 1000);
+  CellBalancingHandle = osThreadCreate(osThread(CellBalancing), NULL);
+
+  /* definition and creation of UserInterface */
+  osThreadDef(UserInterface, UserInterfaceTask, osPriorityLow, 0, 1000);
+  UserInterfaceHandle = osThreadCreate(osThread(UserInterface), NULL);
+
+  /* definition and creation of Charging */
+  osThreadDef(Charging, ChargingTask, osPriorityBelowNormal, 0, 1000);
+  ChargingHandle = osThreadCreate(osThread(Charging), NULL);
+
+  /* definition and creation of Miscelaneous */
+  osThreadDef(Miscelaneous, MiscelaneousTask, osPriorityNormal, 0, 1000);
+  MiscelaneousHandle = osThreadCreate(osThread(Miscelaneous), NULL);
+
+  /* definition and creation of SDCardComm */
+  osThreadDef(SDCardComm, SDCardCommTask, osPriorityNormal, 0, 5000);
+  SDCardCommHandle = osThreadCreate(osThread(SDCardComm), NULL);
+
+  /* definition and creation of WifiTask */
+  osThreadDef(WifiTask, wifiTaskFunction, osPriorityLow, 0, 20000);
+  WifiTaskHandle = osThreadCreate(osThread(WifiTask), NULL);
+
+  /* USER CODE BEGIN RTOS_THREADS */
+	/* add threads, ... */
+  /* USER CODE END RTOS_THREADS */
+
+}
+
+/* USER CODE BEGIN Header_ChipCommTask */
+/**
+ * @brief  Function implementing the ChipComm thread.
+ * @param  argument: Not used
+ * @retval None
+ */
+uint16_t i = 800;
+bool VBusIsDetected = false;
+uint32_t tempTime;
+/* USER CODE END Header_ChipCommTask */
+void ChipCommTask(void const * argument)
+{
+  /* USER CODE BEGIN ChipCommTask */
+	osSemaphoreRelease(chipSemaphoreHandle);
+	/* Infinite loop */
+	for(;;)
+	{
+		osDelay(1);
+		// A timer sets this value every 50 ms so that the communication will happen every 50 ms.
+		// The communication with the ICs is 13 ms.
+		if(!bms.startCommunicate) {
+			continue;
+		}
+		VBusIsDetected = HAL_GPIO_ReadPin(VBUS_Sense_GPIO_Port, VBUS_Sense_Pin);
+		acu.usbConnected = VBusIsDetected;
+		//		  if((uwTick - tempTime)< 100) continue;
+		//		  tempTime = uwTick;
+		bms.startCommunicate = TIMER_RESET;
+
+		HAL_IWDG_Refresh(&hiwdg1); //Resets the wathcdog timer which timeouts in 1 second.
+
+		// Waiting for the semaphore so i dont use
+		// the SPI communication with the chip with other tasks
+		osSemaphoreWait(chipSemaphoreHandle, osWaitForever);
+
+		HAL_GPIO_WritePin(LED_Heart_GPIO_Port, LED_Heart_Pin, GPIO_PIN_SET);
+
+		adBmsWakeupIcIdle(TOTAL_IC);// Waking IC from idle Mode
+
+		// Start S ADC measurements for open wire Checks.
+		adBms6830_Adsv(SINGLE, DCP_ON, OW_ON_ODD_CH);
+		osSemaphoreRelease(chipSemaphoreHandle);
+		osDelay(5);// Wait for the ADC Conversion to be completed.
+
+		// Sends command to start AUX conversion
+		osSemaphoreWait(chipSemaphoreHandle, osWaitForever);
+		adBmsWakeupIcIdle(TOTAL_IC);// Waking IC from idle Mode
+		adBms6830_Adax(AUX_OW_OFF, PUP_DOWN, AUX_ALL); // Starts Auxiliary ADC for the Thermistors. Maybe add redundancy check with adax2
+
+		if(bms.cellBalancingIsEnabled){
+
+			adBms6830_mute(TOTAL_IC);// Stops the discharge in order to successfully sample adc.
+
+			osSemaphoreRelease(chipSemaphoreHandle);
+
+
+			osDelay(16); // Wanted to wait for adc conversions
+//
+//						if (acu.updateCellBalancingValue == 1) {
+//				acu.updateCellBalancingValue = 0;
+//				adBms6830_update_configb(TOTAL_IC, bms.bmsIC);
+//			}
+//			osDelay(8);
+			osSemaphoreWait(chipSemaphoreHandle, osWaitForever);
+
+			adBms6830_snap(TOTAL_IC);// Freezes the registers in order to receive the correct data from the ic
+
+			adBms6830_unmute(TOTAL_IC);// Cell discharge is continued
+
+
+		}
+		adBms6830_read_avgcell_voltages(TOTAL_IC, &bms.bmsIC[0]); // Reads average cell measurements. Is also reading statuses.
+
+		adBms6830_unsnap(TOTAL_IC);// Defreezes the registers.
+
+		adBms6830_read_aux_voltages(TOTAL_IC, &bms.bmsIC[0]); // Reads GPIO measurements for temperature monitoring. If noise interferes too much maybe i will use moving average.
+
+		osSemaphoreRelease(chipSemaphoreHandle);
+
+		checkErrors(TOTAL_IC, &bms, &ivt, &acu, &criticalCan);// The function that checks for all errors in our bms setup.
+
+		HAL_GPIO_WritePin(LED_Heart_GPIO_Port, LED_Heart_Pin, GPIO_PIN_RESET);
+		// osDelay(20);
+	}
+
+  /* USER CODE END ChipCommTask */
+}
+
+/* USER CODE BEGIN Header_CellBalancingTask */
+/**
+ * @brief Function implementing the CellBalancing thread.
+ * @param argument: Not used
+ * @retval None
+ */
+uint8_t balanceFlag = 0;
+uint8_t dischargeFlag = 0;
+/* USER CODE END Header_CellBalancingTask */
+void CellBalancingTask(void const * argument)
+{
+  /* USER CODE BEGIN CellBalancingTask */
+	/* Infinite loop */
+	osDelay(5000);
+	osSemaphoreRelease(chipSemaphoreHandle);
+	if(bms.vcuIsConnected) HAL_GPIO_WritePin(acu.fansControl.group, acu.fansControl.pin, GPIO_PIN_SET);
+	else HAL_GPIO_WritePin(acu.fansControl.group, acu.fansControl.pin, GPIO_PIN_SET);
+	if(bms.vcuIsConnected) osThreadTerminate(CellBalancingHandle);
+	balanceFlag = 1;
+	firstLoopEnterState flagFirstStop = TO_ENTER;
+	////////////////////////////////////////////////////////////////////////////////////////////////////////
+	//////////////////////////////////First implementation (with DCC Bits)//////////////////////////////////
+
+#ifdef DCC_BITS_CELL_BALANCING
+	for(;;)
+	{
+		osDelay(3000);
+		if(!bms.cellBalancingIsWanted || bms.latchedError.state){// For testing purposes
+			//	if(!bms.cellBalancingIsWanted || bms.hasError || bms.maxVoltageCell.val < bms.maxVoltageBalancingisEnabled){// For testing purposes
+			//	if(bms.hasError || !bms.cellBalancingIsWanted || bms.maxVoltageCell < bms.maxVoltageBalancingisEnabled){// Complete condition
+			if(flagFirstStop){
+				bms.cellBalancingIsEnabled = 0;
+				temp_dcc = 0;
+				flagFirstStop = ENTERED;
+				for(uint8_t cic = 0; cic < TOTAL_IC; cic++) bms.bmsIC[cic].tx_cfgb.dcc = 0;
+				osSemaphoreWait(chipSemaphoreHandle, osWaitForever);
+
+				adBms6830_update_configb(TOTAL_IC, bms.bmsIC);
+			//	acu.updateCellBalancingValue = 1;// If commented out, for safety reasons. It updates the cells to be discharged. In this condition it sets all dcc bits to 0 so no cell discharges.
+				osSemaphoreRelease(chipSemaphoreHandle);
+				for(int cic = 0; cic < TOTAL_IC; cic++) for(int cid = 0; cid < 12; cid++) bms.DischargingCells[cic][cid] = 0;
+			}
+			continue;
+		}
+		else flagFirstStop = TO_ENTER;
+		//flag++;
+#ifdef DYNAMIC_CELL_BALANCING_ENABLED
+		bms.maxDiffbetweenCells = (bms.maxVoltageCell - bms.minVoltageCell) / 2; // Experimental
+		if(bms.maxDiffbetweenCells < 0.01) bms.maxDiffbetweenCells = 0.01;
+#endif
+		bms.cellBalancingIsEnabled = 1;
+		for(uint8_t cic = 0; cic < TOTAL_IC; cic++){
+			temp_dcc = 0; // Reseting the dcc storing variable.
+			for(uint8_t cid = START_MEASURE_CELL; cid < STOP_MEASURE_CELL; cid++){
+
+				if(bms.voltages[cic][cid] < bms.minVoltageBalancingisEnabled)
+					//			if(getVoltage(bms.bmsIC[cic].acell.ac_codes[cid]) < bms.minVoltageBalancingisEnabled)
+				{
+					bms.DischargingCells[cic][cid] = NOT_DISCHARGING;
+					continue;// If current cell lower than the minimum permitted voltage in order to discharge, it won't discharge the cell.
+				}
+
+				if(bms.voltages[cic][cid] - bms.minVoltageCell.val > bms.maxDiffbetweenCells){// Then the cell will only discharge if the difference between current cell and lowest cell is higher than a diff threshold
+					//			if(getVoltage(bms.bmsIC[cic].acell.ac_codes[cid]) - bms.minVoltageCell.val > bms.maxDiffbetweenCells){// Then the cell will only discharge if the difference between current cell and lowest cell is higher than a diff threshold
+
+					bms.DischargingCells[cic][cid] = DISCHARGING; // For displaying reasons
+					temp_dcc += ConfigB_DccBit(cid, DCC_BIT_SET);
+				}
+				else bms.DischargingCells[cic][cid] = NOT_DISCHARGING;// For displaying reasons
+			}
+			bms.bmsIC[cic].tx_cfgb.dcc = temp_dcc;// If commented out, for safety reasons
+		}
+	//	 It sends the dcc number to the ICs.
+		osSemaphoreWait(chipSemaphoreHandle, osWaitForever);
+		adBms6830_update_configb(TOTAL_IC, bms.bmsIC);// If commented out, for safety reasons. It updates the cells to be discharged.
+		osSemaphoreRelease(chipSemaphoreHandle);
+	//	acu.updateCellBalancingValue = 1;
+	}
+
+	//////////////////////////////////First implementation (with DCC Bits)//////////////////////////////////
+	////////////////////////////////////////////////////////////////////////////////////////////////////////
+#else
+	////////////////////////////////////////////////////////////////////////////////////////////////////////
+	////////////////////////Second implementation (with PWM Passive Cell Balancing)/////////////////////////
+	firstLoopEnterState flagFirstStart = TO_ENTER;
+
+	for(;;){
+		osDelay(1000);
+		if(charger.wantedOff || bms.hasError){// Testing Purposes
+			//	if(bms.hasError || !charger.isConnected || charger.wantedOff || charger.statusFlag){// For regular program
+			if(flagFirstStop){
+				// Program counter enters only the first time an error has occured or the charger is not able to charge
+				bms.cellBalancingIsEnabled = 0;
+				flagFirstStop = ENTERED;
+				flagFirstStart = TO_ENTER;
+				for(int cic = 0; cic < TOTAL_IC; cic++) bms.bmsIC[cic].tx_cfgb.dcto = 0;
+
+				// Setting pwm bits to 0 to stop cell balancing.
+				osSemaphoreAcquire(chipSemaphoreHandle, osWaitForever);
+				adBms6830_write_pwm(TOTAL_IC, &bms.bmsIC[0], PWM_0_0_PCT);// If commented out, for safety reasons
+				adBms6830_update_configb(TOTAL_IC, &bms.bmsIC[0]);
+				osSemaphoreRelease(chipSemaphoreHandle);
+			}
+			continue;
+		}
+		else flagFirstStop = TO_ENTER;
+		if(flagFirstStart || bms.restartDCTOTimer.triggered){
+
+			bms.restartDCTOTimer.triggered = TIMER_RESET;
+			bms.cellBalancingIsEnabled = 1;
+
+			// Program counter enters only first time the cell balancing starts
+			flagFirstStart = ENTERED;
+			for(int cic = 0; cic < TOTAL_IC; cic++) bms.bmsIC[cic].tx_cfgb.dcto = 11; // Eleven minutes until discharges timer timeouts
+
+			// Setting pwm bits to 15 to start cell balancing.
+			osSemaphoreAcquire(chipSemaphoreHandle, osWaitForever);
+			adBms6830_write_pwm(TOTAL_IC, &bms.bmsIC[0],PWM_100_0_PCT);// If commented out, for safety reasons
+			adBms6830_update_configb(TOTAL_IC, &bms.bmsIC[0]);
+			osSemaphoreRelease(chipSemaphoreHandle);
+		}
+
+
+	}
+#endif
+	////////////////////////Second implementation (with PWM Passive Cell Balancing)/////////////////////////
+	////////////////////////////////////////////////////////////////////////////////////////////////////////
+  /* USER CODE END CellBalancingTask */
+}
+
+/* USER CODE BEGIN Header_UserInterfaceTask */
+/**
+ * @brief Function implementing the UserInterface thread.
+ * @param argument: Not used
+ * @retval None
+ */
+/* USER CODE END Header_UserInterfaceTask */
+void UserInterfaceTask(void const * argument)
+{
+  /* USER CODE BEGIN UserInterfaceTask */
+	static CANData userCanData;
+	/* Infinite loop */
+
+	//	getIntFromVoltage(1);
+	for(;;)
+	{
+		osDelay(5000);
+		if(!bms.interfaceIsConnected) continue;
+		while(bms.interfaceIsConnected){
+			for(int currentIC = 0; currentIC < TOTAL_IC; currentIC++)
+			{
+
+				userCanData.stdTxHeader.IdType = FDCAN_STANDARD_ID;
+				userCanData.stdTxHeader.Identifier = INTERFACE_VOLTAGES_CAN_ID;
+				userCanData.stdTxHeader.TxFrameType = FDCAN_DATA_FRAME;
+				userCanData.stdTxHeader.DataLength = FDCAN_DLC_BYTES_8;
+				userCanData.stdTxHeader.ErrorStateIndicator = FDCAN_ESI_ACTIVE;
+				userCanData.stdTxHeader.BitRateSwitch = FDCAN_BRS_OFF;
+				userCanData.stdTxHeader.FDFormat = FDCAN_CLASSIC_CAN;
+				userCanData.stdTxHeader.TxEventFifoControl = FDCAN_NO_TX_EVENTS;
+				userCanData.stdTxHeader.MessageMarker = 0;
+				for(int currentVoltageId = START_MEASURE_CELL; currentVoltageId < STOP_MEASURE_CELL; currentVoltageId += 3){
+					userCanData.TxData[0] = currentIC;
+					userCanData.TxData[0] |= bms.DischargingCells[currentIC][currentVoltageId] << 4;
+					userCanData.TxData[0] |= bms.DischargingCells[currentIC][currentVoltageId + 1] << 5;
+					userCanData.TxData[0] |= bms.DischargingCells[currentIC][currentVoltageId + 2] << 6;
+					userCanData.TxData[1] = currentVoltageId; // Exo elefthera 4 bits akoma.
+					userCanData.TxData[1] |= ((uint8_t)charger.isConnected & 0b1) << 4;
+					userCanData.TxData[1] |= ((uint8_t)charger.detectsPackFailure & 0b1) << 5;
+					if(charger.statusFlag > 0) canData.TxData[1] |= 1 << 6;
+
+					userCanData.TxData[2] = getIntFromVoltage(bms.voltages[currentIC][currentVoltageId]) >> 8;
+					userCanData.TxData[3] = getIntFromVoltage(bms.voltages[currentIC][currentVoltageId]);
+					userCanData.TxData[4] = getIntFromVoltage(bms.voltages[currentIC][currentVoltageId + 1]) >> 8;
+					userCanData.TxData[5] = getIntFromVoltage(bms.voltages[currentIC][currentVoltageId + 1]);
+					userCanData.TxData[6] = getIntFromVoltage(bms.voltages[currentIC][currentVoltageId + 2]) >> 8;
+					userCanData.TxData[7] = getIntFromVoltage(bms.voltages[currentIC][currentVoltageId + 2]);
+
+					if(HAL_FDCAN_AddMessageToTxFifoQ(&criticalCan, &userCanData.stdTxHeader, userCanData.TxData) != HAL_OK) Error_Handler();
+					osDelay(70);
+				}
+
+				userCanData.stdTxHeader.IdType = FDCAN_STANDARD_ID;
+				userCanData.stdTxHeader.Identifier = INTERFACE_TEMPERATURES_CAN_ID;
+				userCanData.stdTxHeader.TxFrameType = FDCAN_DATA_FRAME;
+				userCanData.stdTxHeader.DataLength = FDCAN_DLC_BYTES_7;
+
+				for(int currentTempId = 0; currentTempId < TOTAL_ID_TEMP; currentTempId += 5){
+					userCanData.TxData[0] = currentIC;
+					userCanData.TxData[0] |= (uint8_t)(bms.internalDieTemperature[currentIC]) & 0b11110000;
+					userCanData.TxData[1] = currentTempId;
+					userCanData.TxData[1] |= ((uint8_t)(bms.internalDieTemperature[currentIC]) & 0b1111) << 4;
+					//					  userCanData.TxData[2] = 100 + (int)lookUpTable(bms.bmsIC[currentIC].aux.a_codes[currentTempId]);
+					//					  userCanData.TxData[3] = 100 + (int)lookUpTable(bms.bmsIC[currentIC].aux.a_codes[currentTempId + 1]);
+					//					  userCanData.TxData[4] = 100 + (int)lookUpTable(bms.bmsIC[currentIC].aux.a_codes[currentTempId + 2]);
+					//					  userCanData.TxData[5] = 100 + (int)lookUpTable(bms.bmsIC[currentIC].aux.a_codes[currentTempId + 3]);
+					//					  userCanData.TxData[6] = 100 + (int)lookUpTable(bms.bmsIC[currentIC].aux.a_codes[currentTempId + 4]);
+
+					userCanData.TxData[2] = 100 + bms.temperatures[currentIC][currentTempId];
+					userCanData.TxData[3] = 100 + bms.temperatures[currentIC][currentTempId + 1];
+					userCanData.TxData[4] = 100 + bms.temperatures[currentIC][currentTempId + 2];
+					userCanData.TxData[5] = 100 + bms.temperatures[currentIC][currentTempId + 3];
+					userCanData.TxData[6] = 100 + bms.temperatures[currentIC][currentTempId + 4];
+
+					if(HAL_FDCAN_AddMessageToTxFifoQ(&criticalCan, &userCanData.stdTxHeader, userCanData.TxData) != HAL_OK) Error_Handler();
+					osDelay(70);
+				}
+			}
+		}
+	}
+  /* USER CODE END UserInterfaceTask */
+}
+
+/* USER CODE BEGIN Header_ChargingTask */
+/**
+ * @brief Function implementing the Charging thread.
+ * @param argument: Not used
+ * @retval None
+ */
+uint8_t chargingFlag = 0;
+uint8_t mphkeCanCharger = 0;
+/* USER CODE END Header_ChargingTask */
+void ChargingTask(void const * argument)
+{
+  /* USER CODE BEGIN ChargingTask */
+	osDelay(5000);// Delay to detect if VCU is connected so this task can be terminated
+
+	if(bms.vcuIsConnected) osThreadTerminate(ChargingHandle);
+	chargingFlag = 1;
+	CANData chargerCANData;
+	CANData chargerCurrentToInterfaceCANData;
+
+	chargerCANData.extTxHeader.DataLength = FDCAN_DLC_BYTES_8;
+	chargerCANData.extTxHeader.Identifier = CHARGER_TX_CAN_ID;
+	chargerCANData.extTxHeader.IdType = FDCAN_EXTENDED_ID;
+	chargerCANData.extTxHeader.TxFrameType = FDCAN_DATA_FRAME;
+	chargerCANData.extTxHeader.ErrorStateIndicator = FDCAN_ESI_ACTIVE;
+	chargerCANData.extTxHeader.BitRateSwitch = FDCAN_BRS_OFF;
+	chargerCANData.extTxHeader.FDFormat = FDCAN_CLASSIC_CAN;
+	chargerCANData.extTxHeader.TxEventFifoControl = FDCAN_NO_TX_EVENTS;
+	chargerCANData.extTxHeader.MessageMarker = 0;
+
+	chargerCurrentToInterfaceCANData.stdTxHeader.DataLength = FDCAN_DLC_BYTES_1;
+	chargerCurrentToInterfaceCANData.stdTxHeader.Identifier = CHARGER_CURRENT_TO_INTERFACE_CAN_ID;
+	chargerCurrentToInterfaceCANData.stdTxHeader.IdType = FDCAN_STANDARD_ID;
+	chargerCurrentToInterfaceCANData.stdTxHeader.TxFrameType = FDCAN_DATA_FRAME;
+	chargerCurrentToInterfaceCANData.stdTxHeader.ErrorStateIndicator = FDCAN_ESI_ACTIVE;
+	chargerCurrentToInterfaceCANData.stdTxHeader.BitRateSwitch = FDCAN_BRS_OFF;
+	chargerCurrentToInterfaceCANData.stdTxHeader.FDFormat = FDCAN_CLASSIC_CAN;
+	chargerCurrentToInterfaceCANData.stdTxHeader.TxEventFifoControl = FDCAN_NO_TX_EVENTS;
+	chargerCurrentToInterfaceCANData.stdTxHeader.MessageMarker = 0;
+
+	//	charger.isConnected = 1;
+
+	/* Infinite loop */
+	for(;;){
+		osDelay(2000);
+		if(!charger.isConnected) continue;
+		while(charger.isConnected){
+			osDelay(808);
+
+			//If interface is connected send output current to interface
+			if(bms.interfaceIsConnected){
+				if(charger.currentAtCharger < 0.05) chargerCurrentToInterfaceCANData.TxData[0] = 0;
+				else chargerCurrentToInterfaceCANData.TxData[0] = (uint8_t)((charger.currentAtCharger + 0.1) * 10);
+				if(HAL_FDCAN_AddMessageToTxFifoQ(&criticalCan,
+						&chargerCurrentToInterfaceCANData.stdTxHeader,
+						chargerCurrentToInterfaceCANData.TxData) != HAL_OK)	Error_Handler();
+			}
+
+			if (bms.wifiIsConnected) {
+				if(charger.currentAtCharger < 0.05) charger.currentAtCharger = 0;
+			}
+
+			charger.commFailure = (charger.statusFlag >> 4) & 0x01;
+			charger.detectsPackFailure = (charger.statusFlag >> 3) & 0x01;;
+			charger.voltageFailure = (charger.statusFlag >> 2)  & 0x01;
+			charger.overTempFailure = (charger.statusFlag >> 1)  & 0x01;
+			charger.hardwareFailure = charger.statusFlag & 0x01;
+			mphkeCanCharger++;
+			if(charger.wantedVoltageTimes10 > 10 * MAX_CHARGING_VOLTAGE) charger.wantedVoltageTimes10 = 10 * MAX_CHARGING_VOLTAGE;
+			//Limits voltage allowed to charge our battery pack
+			if(charger.wantedCurrentTimes10 > 10 * MAX_CHARGING_CURRENT) charger.wantedCurrentTimes10 = 10 * MAX_CHARGING_CURRENT;
+			//Limits current allowed to charge our battery pack
+			chargerCANData.TxData[0] = (uint16_t)charger.wantedVoltageTimes10 >> 8;
+			chargerCANData.TxData[1] = (uint8_t)charger.wantedVoltageTimes10;
+			chargerCANData.TxData[2] = (uint16_t)charger.wantedCurrentTimes10 >> 8;
+			chargerCANData.TxData[3] = (uint8_t)charger.wantedCurrentTimes10;
+			if(charger.statusFlag || bms.hasError ||  !acu.prechargeIsDone) chargerCANData.TxData[4] = CHARGER_WANTED_OFF;
+			// Sends the message to stop the charger if error has occured in the BMS or charger.
+			else chargerCANData.TxData[4] = charger.wantedOff;//If there is none error, pass the user's command.
+			chargerCANData.TxData[5] = 0;
+			chargerCANData.TxData[6] = 0;
+			chargerCANData.TxData[7] = 0;
+			if(HAL_FDCAN_AddMessageToTxFifoQ(&chargerCan, &chargerCANData.extTxHeader,chargerCANData.TxData) != HAL_OK)	Error_Handler();
+			//Sends the correct CAN Command to the charger in order to charge.
+		}
+	}
+  /* USER CODE END ChargingTask */
+}
+
+/* USER CODE BEGIN Header_MiscelaneousTask */
+/**
+ * @brief Function implementing the Miscelaneous thread.
+ * @param argument: Not used
+ * @retval None
+ */
+uint32_t startTime = 0;
+uint32_t pwm_temp = 0;
+/* USER CODE END Header_MiscelaneousTask */
+void MiscelaneousTask(void const * argument)
+{
+  /* USER CODE BEGIN MiscelaneousTask */
+
+	HAL_GPIO_WritePin(acu.fansControl.group, acu.fansControl.pin, GPIO_PIN_SET);
+
+	uint8_t CANFlag = 0;
+	uint8_t vcuCounter = 0;
+//	uint8_t imdResistance = 0;
+	//	CANData ivtCan;
+	//	uint8_t differentStateOfRelaysFlag = 0;
+	//Activating DCDC Fans
+	osDelay(1000);
+	writeVicorPage(&vicor, 0);
+	clearVicorFaults(&vicor);
+	/* Infinite loop */
+	for(;;)
+	{
+		osDelay(1);
+		if ((uwTick - startTime) < 100) continue;
+		startTime = uwTick;
+
+		HAL_IWDG_Refresh(&hiwdg1); //Resets the wathcdog timer which timeouts in 1 second.
+
+		updateVicorData(&vicor);
+		acu.soc = calculateSoC(ivt.chargingAs, ivt.dischargingAs); //State of charge calculation
+
+		////Read Digital Inputs
+		//SCS signals of latched errors in IMD, AMS
+		bms.latchedError.state = HAL_GPIO_ReadPin(bms.latchedError.group, bms.latchedError.pin);
+		acu.IMDLatchedError.state = HAL_GPIO_ReadPin(acu.IMDLatchedError.group, acu.IMDLatchedError.pin);
+
+		//Relay inputs
+		acu.airPlusAux.state = HAL_GPIO_ReadPin(acu.airPlusAux.group, acu.airPlusAux.pin);
+		//	  acu.airPlusAux.state = HAL_GPIO_ReadPin(acu.airPlusSupply.group, acu.airPlusSupply.pin);
+		acu.airPlusSupply.state = HAL_GPIO_ReadPin(acu.airPlusSupply.group, acu.airPlusSupply.pin);
+		acu.airMinusAux.state = HAL_GPIO_ReadPin(acu.airMinusAux.group, acu.airMinusAux.pin);
+		acu.airMinusSupply.state = HAL_GPIO_ReadPin(acu.airMinusSupply.group, acu.airMinusSupply.pin);
+		acu.preAux.state = !HAL_GPIO_ReadPin(acu.preAux.group, acu.preAux.pin);
+
+		acu.TSOver60Volt.state = !HAL_GPIO_ReadPin(acu.TSOver60Volt.group, acu.TSOver60Volt.pin);
+		acu.IMDIsOK.state = HAL_GPIO_ReadPin(acu.IMDIsOK.group, acu.IMDIsOK.pin);
+
+		////Read Analog Inputs
+		acu.vicorThermistorTemperature = thermistorCalculate(acu.analogInputRawValues[0]); // Thelo kapoia sinarthsh metaforas gia thermistor
+
+		acu.humidity = (- 12.5 + 125 * (float)(acu.analogInputRawValues[1] / 4095.0));
+		acu.PCBTemperature = - 60.625 + 206.25 * (float)(acu.analogInputRawValues[2] / 4095.0);
+
+		acu.IMDResistance = (((90*1200000)/(((uint8_t)acu.IMDPWMDutyCycle - 1) - 5)) - 1200000)/1000;
+
+
+		//// Sends data to VCU and Dataloggers!
+		if(CANFlag == 0){
+			CANFlag = 1;
+			canData.stdTxHeader.TxFrameType = FDCAN_DATA_FRAME;
+			canData.stdTxHeader.DataLength = FDCAN_DLC_BYTES_8 ;
+			canData.stdTxHeader.Identifier =  ACU_INFO_TX_1_CAN_ID;
+			canData.stdTxHeader.IdType = FDCAN_STANDARD_ID;
+			canData.stdTxHeader.ErrorStateIndicator = FDCAN_ESI_ACTIVE;
+			canData.stdTxHeader.BitRateSwitch = FDCAN_BRS_OFF;
+			canData.stdTxHeader.FDFormat = FDCAN_CLASSIC_CAN;
+			canData.stdTxHeader.TxEventFifoControl = FDCAN_NO_TX_EVENTS;
+			canData.stdTxHeader.MessageMarker = 0;
+			canData.TxData[0] = bms.latchedError.state |
+					acu.IMDLatchedError.state << 1 |
+					acu.airPlusAux.state << 2 |
+					acu.airMinusAux.state << 3 |
+					acu.preAux.state << 4 |
+					bms.voltagesHaveError << 5 | bms.tempsHaveError << 6 |
+					ivt.hasError << 7;
+			canData.TxData[1] = (int)bms.maxCellTemp.val;
+			canData.TxData[2] = getIntFromVoltage(bms.maxVoltageCell.val) >> 8;
+			canData.TxData[3] = getIntFromVoltage(bms.maxVoltageCell.val);
+			canData.TxData[4] = getIntFromVoltage(bms.minVoltageCell.val) >> 8;
+			canData.TxData[5] = getIntFromVoltage(bms.minVoltageCell.val);
+			canData.TxData[6] = vcuCounter++;
+			canData.TxData[7] = 0;
+			// Finds checksum and sends it with the rest of the message for SCS Checks.
+			for(int i = 0; i < canData.stdTxHeader.DataLength - 1; i++) canData.TxData[7] += canData.TxData[i];
+		}
+		else{
+			CANFlag = 0;
+
+//			_canData.TxHeader.IdType = FDCAN_STANDARD_ID;
+//			_canData.TxHeader.Identifier = INVERTER_TX_CAN_ID;//0x201
+//			_canData.TxHeader.TxFrameType = FDCAN_DATA_FRAME;
+//			_canData.TxHeader.DataLength = FDCAN_DLC_BYTES_3;
+//			_canData.TxHeader.ErrorStateIndicator = FDCAN_ESI_ACTIVE;
+//			_canData.TxHeader.BitRateSwitch = FDCAN_BRS_OFF;
+//			_canData.TxHeader.FDFormat = FDCAN_CLASSIC_CAN;
+//			_canData.TxHeader.TxEventFifoControl = FDCAN_NO_TX_EVENTS;
+//			_canData.TxHeader.MessageMarker = 0;
+
+			canData.stdTxHeader.TxFrameType = FDCAN_DATA_FRAME;
+			canData.stdTxHeader.DataLength  = FDCAN_DLC_BYTES_8;
+			canData.stdTxHeader.Identifier =  ACU_INFO_TX_2_CAN_ID;
+			canData.stdTxHeader.IdType = FDCAN_STANDARD_ID;
+			canData.stdTxHeader.ErrorStateIndicator = FDCAN_ESI_ACTIVE;
+			canData.stdTxHeader.BitRateSwitch = FDCAN_BRS_OFF;
+			canData.stdTxHeader.FDFormat = FDCAN_CLASSIC_CAN;
+			canData.stdTxHeader.TxEventFifoControl = FDCAN_NO_TX_EVENTS;
+			canData.stdTxHeader.MessageMarker = 0;
+			canData.TxData[0] = 0;
+			if(bms.hasError){
+				canData.TxData[0] = 5;// Generic Fault
+				if(bms.voltagesHaveError) canData.TxData[0] = 2;// Voltages Fault
+				else if(bms.tempsHaveError) canData.TxData[0] = 3;// Temperatures Fault
+				else if(ivt.hasError) canData.TxData[0] = 4;// Current Sensor Fault
+			}
+			if(bms.isoSPIHasError) canData.TxData[0] = 1; // ISOSPI Fault
+			canData.TxData[0] |= acu.airPlusIsStuck << 3;
+			canData.TxData[0] |= acu.airMinusIsStuck << 4;
+			canData.TxData[0] |= acu.TSOver60Volt.state << 5;
+			canData.TxData[0] |= acu.airMinusSupply.state << 6;
+			canData.TxData[0] |= acu.airPlusSupply.state << 7;
+			canData.TxData[1] = bms.maxCellTemp.id;
+			canData.TxData[2] = bms.maxVoltageCell.id;
+			canData.TxData[3] = bms.minVoltageCell.id;
+			canData.TxData[4] = (uint8_t)map(acu.IMDPWMDutyCycle, 0, 100, 0, 255);
+			canData.TxData[5] = acu.humidity;
+			canData.TxData[6] = acu.PCBTemperature;
+			canData.TxData[7] = vicor.temperature;
+		}
+		if(HAL_FDCAN_AddMessageToTxFifoQ(&criticalCan, &canData.stdTxHeader, canData.TxData) != HAL_OK) Error_Handler();
+
+		//	  if(ivt.voltage1 < 388 && acu.airMinusAux.state && acu.airPlusAux.state){
+		////		  HAL_GPIO_WritePin(bms.isOK.group, bms.isOK.pin, GPIO_PIN_RESET);//Default : RESET
+		//		  bms.voltageMeasurementError = ERROR_TRIGGERED;
+		//	  }	  if(ivt.voltage1 < 388 && acu.airMinusAux.state && acu.airPlusAux.state){
+		////		  HAL_GPIO_WritePin(bms.isOK.group, bms.isOK.pin, GPIO_PIN_RESET);//Default : RESET
+		//          bms.voltageMeasurementError = ERROR_TRIGGERED;
+		//      }
+
+		//	  if(ivt.voltage1 > 0.96 * bms.packVoltage && !acu.airPlusIsStuck && !acu.airMinusIsStuck){// Action of the precharge.
+		//		  HAL_GPIO_WritePin(acu.airPlusDriver.group, acu.airPlusDriver.pin, GPIO_PIN_SET);// set default
+		//		  acu.prechargeIsDone = 1;
+		//	  }
+		//	  else{
+		//		  HAL_GPIO_WritePin(acu.airPlusDriver.group, acu.airPlusDriver.pin, GPIO_PIN_RESET); // reset default
+		//		  acu.prechargeIsDone = 0;
+		//	  }
+		//      if(ivt.voltage1 > 0.951 * 398.0){// Action of the precharge.
+		//          HAL_GPIO_WritePin(acu.airPlusDriver.group, acu.airPlusDriver.pin, GPIO_PIN_SET);// set default
+		//          acu.prechargeIsDone = 1;
+		//      }
+
+		if(ivt.voltage1 > 0.951 * bms.packVoltage){// Action of the precharge.
+			HAL_GPIO_WritePin(acu.airPlusDriver.group, acu.airPlusDriver.pin, GPIO_PIN_SET);// set default
+			acu.prechargeIsDone = 1;
+		}
+
+		// DIORTHWSE META!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+		else{
+			HAL_GPIO_WritePin(acu.airPlusDriver.group, acu.airPlusDriver.pin, GPIO_PIN_RESET); // reset default
+			acu.prechargeIsDone = 0;
+		}
+
+	}
+  /* USER CODE END MiscelaneousTask */
+}
+
+/* USER CODE BEGIN Header_SDCardCommTask */
+/**
+ * @brief Function implementing the SDCardComm thread.
+ * @param argument: Not used
+ * @retval None
+ */
+FRESULT ret;
+void changeLine(FIL *_fil){
+
+	f_puts("\n", _fil);
+	return;
+
+}
+/**
+ *******************************************************************************
+ * @brief WriteData to SDCard
+ *******************************************************************************
+ */
+static char tmp[30];
+
+void writeStrField(FIL *_fil, char *val){
+	//	static char tmp[20];
+	sprintf(tmp, "%s,", val);
+	f_puts(tmp, _fil);
+	//	vPortFree(&tmp);
+	return;
+}
+
+void writeIntField(FIL *_fil, int val){
+	//	static char tmp[20];
+	sprintf(tmp, "%d,", val);
+	f_puts(tmp, _fil);
+	//	vPortFree(&tmp);
+	return;
+}
+
+void writeFloatField(FIL *_fil, float val){
+	//	static char tmp[20];
+	sprintf(tmp, "%.3f,", val);
+	f_puts(tmp, _fil);
+	//	vPortFree(&tmp);
+	return;
+}
+
+/**
+ *******************************************************************************
+ * @brief Initialize SDCard
+ *******************************************************************************
+ */
+void SDCardInit(FIL *_fil){
+	char buf[25];
+	writeStrField(_fil,"Time");
+	//	writeStrField(_fil,"AAAAA");
+	writeStrField(_fil,"ACUFLags");
+	//BMS Data
+	writeStrField(_fil,"BMS Error");
+	writeStrField(_fil,"Voltages Error");
+	writeStrField(_fil,"Temperatures Error");
+	writeStrField(_fil,"Current Sensor Error");
+	writeStrField(_fil,"ISO SPI Error");
+	writeStrField(_fil,"Internal Voltages Error");
+	HAL_Delay(1);
+	//IVT Data
+	writeStrField(_fil,"IVT Current");
+	writeStrField(_fil,"IVT Vehicle Side Voltage");
+	writeStrField(_fil,"IVT Pack Side Voltage");
+	writeStrField(_fil,"IVT Wattage");
+	HAL_Delay(1);
+
+	//ACU Data
+	writeStrField(_fil,"IMD Error");
+	writeStrField(_fil,"IMD Duty Cycle");
+	writeStrField(_fil,"IMD Frequency");
+
+	//Vicor Data
+	writeStrField(_fil,"Vicor Temperature");
+	writeStrField(_fil,"Vicor current in");
+	writeStrField(_fil,"Vicor current out");
+	writeStrField(_fil,"Vicor voltage in");
+	writeStrField(_fil,"Vicor voltage out");
+	writeStrField(_fil,"Vicor wattage out");
+
+
+
+	writeStrField(_fil,"ACU Humidity");
+	writeStrField(_fil,"ACU PCB Temperature");
+	writeStrField(_fil,"Relays Stuck");
+	writeStrField(_fil,"Pack Voltage");
+	writeStrField(_fil,"min Cell Voltage");
+	writeStrField(_fil,"min Cell Voltage ID");
+	writeStrField(_fil,"max Cell Voltage");
+	writeStrField(_fil,"max Cell Voltage ID");
+	writeStrField(_fil,"max Cell Temperature");
+	writeStrField(_fil,"max Cell Temperature ID");
+	HAL_Delay(1);
+	for(int cic = 0; cic < TOTAL_IC; cic++){
+		for(int cid = 0; cid < STOP_MEASURE_CELL; cid++){
+			sprintf(buf, "Cell %d Voltage", 12 * cic + cid);
+			writeStrField(_fil, buf);
+			osDelay(1);
+
+		}
+	}
+	for(int cic = 0; cic < TOTAL_IC; cic++){
+		for(int cidTemp = 0; cidTemp < 10; cidTemp++){
+			sprintf(buf, "Cell %d Temperature", 10 * cic + cidTemp);
+			writeStrField(_fil, buf);
+			osDelay(1);
+		}
+	}
+	for(int cic = 0; cic < TOTAL_IC; cic++){
+		sprintf(buf, "IC %d Temperature", cic);
+		writeStrField(_fil, buf);
+		osDelay(1);
+	}
+
+	changeLine(_fil);
+	f_sync(_fil);
+
+
+
+
+	//	writeIntField();
+	//	writeIntField();
+
+}
+/**
+ *******************************************************************************
+ * @brief Initialize State of Charge SD Files
+ *******************************************************************************
+ */
+void SoC_Init(FIL *fil, float ah)
+{
+
+	f_lseek(fil, 0);
+	writeFloatField(fil, ah);
+	changeLine(fil);
+	f_sync(fil);
+}
+uint8_t sdcardFlag = 0;
+uint8_t acuFlags = 0;
+FRESULT res;
+FRESULT resSoC;
+FRESULT AA;
+FATFS FatFs;
+FRESULT FR_Status;
+FILINFO filinfo;
+bool resetNeeded = false;
+bool usbReset = false;
+/* USER CODE END Header_SDCardCommTask */
+void SDCardCommTask(void const * argument)
+{
+  /* USER CODE BEGIN SDCardCommTask */
+	osDelay(1000);
+	//	if(f_mount(&FatFs, "", 1) != FR_OK){
+	//		Error_Handler();
+	//		Error_Handler();
+	//		Error_Handler();
+	//		osThreadTerminate(SDCardCommHandle);
+	//	}
+	if(acu.usbConnected == false)
+	{
+
+		if((xTaskGetTickCount() - acu.sdSyncTime) > 1000 - 1){
+			acu.sdSyncTime = xTaskGetTickCount();
+			// If there is any error with f_sync, try again
+			f_mount(NULL, "", 0);
+			res = f_mount(&FatFs, (TCHAR const*)SDPath, 1);
+
+		}
+
+		const uint8_t BASE_NAME_SIZE = sizeof(FILE_BASE_NAME) - 1;
+		char fileName[13] = FILE_BASE_NAME "000.CSV";
+		while(f_stat(fileName, &filinfo) != FR_NO_FILE){
+			if(fileName[BASE_NAME_SIZE + 2] != '9') {
+				fileName[BASE_NAME_SIZE + 2]++;
+			}
+			else if(fileName[BASE_NAME_SIZE + 1] != '9') {
+				fileName[BASE_NAME_SIZE + 2] = '0';
+				fileName[BASE_NAME_SIZE + 1]++;
+			}
+			else if(fileName[BASE_NAME_SIZE] != '9'){
+				fileName[BASE_NAME_SIZE + 2] = '0';
+				fileName[BASE_NAME_SIZE + 1] = '0';
+				fileName[BASE_NAME_SIZE]++;
+			}
+			else{
+				osThreadTerminate(SDCardCommHandle);
+				Error_Handler();
+				break;
+			}
+		}
+
+		FR_Status = f_open(&fil, fileName, FA_WRITE | FA_READ | FA_CREATE_ALWAYS);
+		if( FR_Status != FR_OK) Error_Handler();
+//		res = f_puts(tmp, &fil);
+
+		AA = f_sync(&fil);
+		if (AA != FR_OK) {
+			Error_Handler();
+		}
+		SDCardInit(&fil);
+		acu.sdSyncTime = xTaskGetTickCount();
+		char bufAh[32];
+#if FULLY_CHARGED
+		remainingAh = MAX_Ah;
+		socPercent  = 100.0f;
+		acu.soc     = 100.0f;
+#else
+		float fileAh = 0;
+
+		FR_Status = f_open(&filSoC, "SoC.txt", FA_OPEN_EXISTING | FA_READ);
+		if (FR_Status == FR_OK) {
+			if (f_gets(bufAh, sizeof(bufAh), &filSoC)) {
+				fileAh = strtof(bufAh, NULL);
+			}
+			f_close(&filSoC);
+		}
+		if (fileAh < 0.0f) fileAh = 0.0f;
+		if (fileAh > MAX_Ah) fileAh = MAX_Ah;
+		remainingAh = fileAh;
+		socPercent = 100.0f * (remainingAh / MAX_Ah);
+		acu.soc = socPercent;
+#endif
+		FR_Status = f_open(&filSoC, "SoC.txt", FA_OPEN_ALWAYS | FA_WRITE);
+		if ( FR_Status != FR_OK)  Error_Handler();
+		SoC_Init(&filSoC, acu.soc);
+		uint32_t SDCardWriteTime = uwTick;
+		uint32_t SDCardSyncTime = uwTick;
+		/* Infinite loop */
+		for(;;)
+		{
+			if(!acu.sdEnabled){
+				HAL_GPIO_WritePin(Media_Select_GPIO_Port, Media_Select_Pin, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(MEDIA_NRST_GPIO_Port, MEDIA_NRST_Pin, GPIO_PIN_RESET);
+				acu.sdDisabled = 0;
+				acu.sdEnabled = 1;
+
+			}
+
+			osDelay(1);
+			if((uwTick - SDCardWriteTime) > 100 - 1){
+				sdcardFlag++;
+				SDCardWriteTime = uwTick;
+
+				//BMS Data
+				writeIntField(&fil, SDCardWriteTime);
+				acuFlags = bms.latchedError.state | acu.IMDLatchedError.state << 1 |
+						acu.airPlusAux.state << 2 | acu.airMinusAux.state << 3 |
+						acu.preAux.state << 4 | bms.voltagesHaveError << 5 |
+						bms.tempsHaveError << 6 | ivt.hasError << 7;
+				writeIntField(&fil, acuFlags);
+				writeIntField(&fil, bms.hasError);
+				writeIntField(&fil, bms.voltagesHaveError);
+				writeIntField(&fil, bms.tempsHaveError);
+				writeIntField(&fil, ivt.hasError);
+				writeIntField(&fil, bms.isoSPIHasError);
+				writeIntField(&fil, bms.internalVoltagesHaveError);
+
+				//IVT Data
+				writeFloatField(&fil, ivt.current);
+				writeFloatField(&fil, ivt.voltage1);
+				writeFloatField(&fil, ivt.voltage2);
+				writeFloatField(&fil, ivt.wattage);
+
+				//IMD Data
+				writeIntField(&fil, acu.IMDHasError);
+				writeFloatField(&fil, acu.IMDPWMDutyCycle);
+				writeIntField(&fil, acu.IMDPWMFrequency);
+
+				//Vicor Data
+				writeFloatField(&fil, vicor.temperature);
+				writeFloatField(&fil, vicor.currentIn);
+				writeFloatField(&fil, vicor.currentOut);
+				writeFloatField(&fil, vicor.voltageIn);
+				writeFloatField(&fil, vicor.voltageOut);
+				writeFloatField(&fil, vicor.wattageOut);
+
+				//ACU Data
+				writeFloatField(&fil, acu.humidity);
+				writeFloatField(&fil, acu.PCBTemperature);
+				writeIntField(&fil, (acu.airMinusIsStuck << 1) | acu.airPlusIsStuck);
+				writeFloatField(&fil, bms.packVoltage);
+				writeFloatField(&fil, bms.minVoltageCell.val);
+				writeIntField(&fil, bms.minVoltageCell.id);
+				writeFloatField(&fil, bms.maxVoltageCell.val);
+				writeIntField(&fil, bms.maxVoltageCell.id);
+				writeFloatField(&fil, bms.maxCellTemp.val);
+				writeIntField(&fil, bms.maxCellTemp.id);
+
+				// Voltages
+				for(int cic = 0; cic < TOTAL_IC; cic++){
+					for(int cid = 0; cid < STOP_MEASURE_CELL; cid++) writeFloatField(&fil, bms.voltages[cic][cid]);
+				}
+
+				// Temperatures
+				for(int cic = 0; cic < TOTAL_IC; cic++){
+					for(int cidTemp = 0; cidTemp < 10; cidTemp++) writeFloatField(&fil, bms.temperatures[cic][cidTemp]);
+				}
+
+				// Internal temperatures of ICs
+				for(int cic = 0; cic < TOTAL_IC; cic++) writeFloatField(&fil, bms.internalDieTemperature[cic]);
+
+				// Change Line
+				changeLine(&fil);
+
+				f_lseek(&filSoC, 0);
+				writeFloatField(&filSoC, (float)remainingAh);
+				changeLine(&filSoC);
+				HAL_GPIO_WritePin(LED_SD_H7_GPIO_Port, LED_SD_H7_Pin, GPIO_PIN_SET);
+			}
+
+			if((uwTick - SDCardSyncTime) > 10000 - 1){
+				SDCardSyncTime = uwTick;
+				if(f_sync(&fil) != FR_OK){
+					AA = f_sync(&fil);
+					f_close(&fil);
+					f_mount(NULL, "", 0);
+					f_mount(&FatFs, "", 1);
+					res = f_open(&fil, fileName, FA_WRITE | FA_READ | FA_CREATE_ALWAYS);
+					osThreadTerminate(SDCardCommHandle);
+
+					HAL_GPIO_TogglePin(LED_SD_H7_GPIO_Port, LED_SD_H7_Pin);
+					osDelay(500);
+				}
+				if(f_sync(&filSoC) != FR_OK){
+					AA = f_sync(&filSoC);
+					f_close(&filSoC);
+					f_mount(NULL, "", 0);
+					f_mount(&FatFs, "", 1);
+					resSoC = f_open(&filSoC, fileName, FA_WRITE | FA_READ | FA_CREATE_ALWAYS);
+					osThreadTerminate(SDCardCommHandle);
+					HAL_GPIO_TogglePin(LED_SD_H7_GPIO_Port, LED_SD_H7_Pin);
+					osDelay(500);
+				}
+			}
+		}
+	}
+	else if(acu.usbConnected == true){
+	    for(;;)
+	    {
+			f_sync(&fil);
+			f_sync(&filSoC);
+			f_close(&fil);
+			f_close(&filSoC);
+			f_mount(NULL, "", 0);
+			HAL_GPIO_WritePin(Media_Select_GPIO_Port, Media_Select_Pin, GPIO_PIN_SET);
+			HAL_GPIO_WritePin(MEDIA_NRST_GPIO_Port, MEDIA_NRST_Pin, GPIO_PIN_SET);
+			HAL_GPIO_WritePin(LED_SD_H7_GPIO_Port, LED_SD_H7_Pin, GPIO_PIN_RESET);
+			acu.sdDisabled = 1;
+			acu.sdEnabled = 0;
+	        HAL_IWDG_Refresh(&hiwdg1);
+	        osDelay(100);
+	    }
+	}
+  /* USER CODE END SDCardCommTask */
+}
+
+/* USER CODE BEGIN Header_wifiTaskFunction */
+/**
+* @brief Function implementing the WifiTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_wifiTaskFunction */
+void wifiTaskFunction(void const * argument)
+{
+  /* USER CODE BEGIN wifiTaskFunction */
+	main_app();
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(1);
+  }
+  /* USER CODE END wifiTaskFunction */
+}
+
+/* Private application code --------------------------------------------------*/
+/* USER CODE BEGIN Application */
+
+/* USER CODE END Application */

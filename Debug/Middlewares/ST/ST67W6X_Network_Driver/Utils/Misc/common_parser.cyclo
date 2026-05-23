@@ -1,0 +1,8 @@
+../Middlewares/ST/ST67W6X_Network_Driver/Utils/Misc/common_parser.c:46:9:Parser_StrToHex	4
+../Middlewares/ST/ST67W6X_Network_Driver/Utils/Misc/common_parser.c:75:9:Parser_StrToInt	10
+../Middlewares/ST/ST67W6X_Network_Driver/Utils/Misc/common_parser.c:141:6:Parser_StrToIP	9
+../Middlewares/ST/ST67W6X_Network_Driver/Utils/Misc/common_parser.c:180:9:Parser_CheckValidAddress	6
+../Middlewares/ST/ST67W6X_Network_Driver/Utils/Misc/common_parser.c:206:6:Parser_StrToMAC	7
+../Middlewares/ST/ST67W6X_Network_Driver/Utils/Misc/common_parser.c:238:9:Parser_Hex2Num	7
+../Middlewares/ST/ST67W6X_Network_Driver/Utils/Misc/common_parser.c:260:6:format_ipv6_address	1
+../Middlewares/ST/ST67W6X_Network_Driver/Utils/Misc/common_parser.c:267:9:is_ipv6_address_str_zero	1

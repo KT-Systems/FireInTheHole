@@ -1,0 +1,8 @@
+../Middlewares/ST/ST67W6X_Network_Driver/Driver/W61_bus/w61_io.c:38:9:BusIo_SPI_Init	16	static
+../Middlewares/ST/ST67W6X_Network_Driver/Driver/W61_bus/w61_io.c:54:9:BusIo_SPI_DeInit	8	static
+../Middlewares/ST/ST67W6X_Network_Driver/Driver/W61_bus/w61_io.c:60:9:BusIo_SPI_Bind	32	static
+../Middlewares/ST/ST67W6X_Network_Driver/Driver/W61_bus/w61_io.c:75:6:BusIo_SPI_Delay	16	static
+../Middlewares/ST/ST67W6X_Network_Driver/Driver/W61_bus/w61_io.c:80:9:BusIo_SPI_SendData	64	static
+../Middlewares/ST/ST67W6X_Network_Driver/Driver/W61_bus/w61_io.c:92:9:BusIo_SPI_ReceiveData	64	static
+../Middlewares/ST/ST67W6X_Network_Driver/Driver/W61_bus/w61_io.c:104:9:BusIo_SPI_ReceivePtr	72	static
+../Middlewares/ST/ST67W6X_Network_Driver/Driver/W61_bus/w61_io.c:128:9:BusIo_SPI_Free	16	static

@@ -1,0 +1,5 @@
+../Middlewares/ST/ST67W6X_Network_Driver/Utils/Logging/logging.c:225:7:vLoggingInit	4
+../Middlewares/ST/ST67W6X_Network_Driver/Utils/Logging/logging.c:256:6:vLoggingSetVerbosity	2
+../Middlewares/ST/ST67W6X_Network_Driver/Utils/Logging/logging.c:264:9:vLoggingPrintf	17
+../Middlewares/ST/ST67W6X_Network_Driver/Utils/Logging/logging.c:383:6:vLoggingDeInit	3
+../Middlewares/ST/ST67W6X_Network_Driver/Utils/Logging/logging.c:397:13:OutputTask	7

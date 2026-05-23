@@ -1,0 +1,6 @@
+../Appli/Target/stm32_lpm_if.c:56:6:PWR_EnterOffMode	1
+../Appli/Target/stm32_lpm_if.c:63:6:PWR_ExitOffMode	1
+../Appli/Target/stm32_lpm_if.c:70:6:PWR_EnterStopMode	1
+../Appli/Target/stm32_lpm_if.c:80:6:PWR_ExitStopMode	1
+../Appli/Target/stm32_lpm_if.c:90:6:PWR_EnterSleepMode	1
+../Appli/Target/stm32_lpm_if.c:104:6:PWR_ExitSleepMode	1

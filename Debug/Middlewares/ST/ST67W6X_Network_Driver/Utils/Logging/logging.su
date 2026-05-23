@@ -1,0 +1,5 @@
+../Middlewares/ST/ST67W6X_Network_Driver/Utils/Logging/logging.c:225:7:vLoggingInit	32	static
+../Middlewares/ST/ST67W6X_Network_Driver/Utils/Logging/logging.c:256:6:vLoggingSetVerbosity	16	static
+../Middlewares/ST/ST67W6X_Network_Driver/Utils/Logging/logging.c:264:9:vLoggingPrintf	184	static,ignoring_inline_asm
+../Middlewares/ST/ST67W6X_Network_Driver/Utils/Logging/logging.c:383:6:vLoggingDeInit	8	static
+../Middlewares/ST/ST67W6X_Network_Driver/Utils/Logging/logging.c:397:13:OutputTask	24	static

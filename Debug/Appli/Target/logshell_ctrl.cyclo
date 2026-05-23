@@ -1,0 +1,5 @@
+../Drivers/CMSIS/Include/core_cm7.h:2660:26:ITM_SendChar	4
+../Appli/Target/logshell_ctrl.c:163:1:__io_putchar	1
+../Appli/Target/logshell_ctrl.c:192:6:LogOutput	2
+../Appli/Target/logshell_ctrl.c:228:6:LoggingInit	1
+../Appli/Target/logshell_ctrl.c:241:6:ShellInit	1

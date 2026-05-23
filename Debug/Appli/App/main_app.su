@@ -1,0 +1,10 @@
+../Appli/App/main_app.c:180:6:main_app	152	static
+../Appli/App/main_app.c:294:6:HAL_GPIO_EXTI_Callback	16	static
+../Appli/App/main_app.c:316:6:HAL_GPIO_EXTI_Rising_Callback	16	static
+../Appli/App/main_app.c:331:6:HAL_GPIO_EXTI_Falling_Callback	16	static
+../Appli/App/main_app.c:364:13:APP_wifi_cb	24	static
+../Appli/App/main_app.c:403:13:APP_net_cb	24	static
+../Appli/App/main_app.c:420:13:APP_mqtt_cb	16	static
+../Appli/App/main_app.c:427:13:APP_ble_cb	16	static
+../Appli/App/main_app.c:434:13:APP_error_cb	16	static
+../Appli/App/main_app.c:455:13:LowPowerManagerInit	4	static

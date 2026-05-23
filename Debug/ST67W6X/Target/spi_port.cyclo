@@ -1,0 +1,10 @@
+../ST67W6X/Target/spi_port.c:79:7:spi_port_memcpy	5
+../ST67W6X/Target/spi_port.c:121:9:spi_port_init	2
+../ST67W6X/Target/spi_port.c:143:9:spi_port_deinit	1
+../ST67W6X/Target/spi_port.c:162:9:spi_port_transfer	7
+../ST67W6X/Target/spi_port.c:195:9:spi_port_transfer_dma	7
+../ST67W6X/Target/spi_port.c:228:9:spi_port_is_ready	1
+../ST67W6X/Target/spi_port.c:240:9:spi_port_set_cs	2
+../ST67W6X/Target/spi_port.c:270:6:HAL_SPI_TxCpltCallback	1
+../ST67W6X/Target/spi_port.c:281:6:HAL_SPI_RxCpltCallback	1
+../ST67W6X/Target/spi_port.c:292:6:HAL_SPI_TxRxCpltCallback	1

@@ -1,0 +1,6 @@
+../Middlewares/ST/ST67W6X_Network_Driver/Core/w6x_http.c:316:14:W6X_HTTP_Client_Request	80	static
+../Middlewares/ST/ST67W6X_Network_Driver/Core/w6x_http.c:531:13:W6X_HTTP_Client_task	184	static
+../Middlewares/ST/ST67W6X_Network_Driver/Core/w6x_http.c:791:21:W6X_HTTP_Parse_Content_Length	32	static
+../Middlewares/ST/ST67W6X_Network_Driver/Core/w6x_http.c:820:21:W6X_HTTP_Parse_Response_Status	48	static
+../Middlewares/ST/ST67W6X_Network_Driver/Core/w6x_http.c:869:21:W6X_HTTP_Get_Status_Category	16	static
+../Middlewares/ST/ST67W6X_Network_Driver/Core/w6x_http.c:895:21:W6X_HTTP_Client_Wait_For_Header	40	static

@@ -1,0 +1,6 @@
+../Middlewares/ST/ST67W6X_Network_Driver/Api/w6x_legacy.h:222:28:W6X_WiFi_GetApIpAddress	16	static
+../Appli/App/httpserver.c:712:6:http_server_socket	112	static
+../Appli/App/httpserver.c:845:13:http_server_serve_task	40	static
+../Appli/App/httpserver.c:902:16:http_server_write	40	static
+../Appli/App/httpserver.c:924:9:close_client	16	static
+../Appli/App/httpserver.c:930:13:http_process_response	4176	static
